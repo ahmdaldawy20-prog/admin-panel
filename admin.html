@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>لوحة تحكم شوط</title>
+<link rel="manifest" href="admin-manifest.webmanifest">
+<link rel="icon" type="image/png" href="admin-favicon-32.png">
+<link rel="apple-touch-icon" href="admin-icon-180.png">
+<meta name="theme-color" content="#1c1712">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="لوحة المشرف">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-messaging-compat.js"></script>
+<style>
+  :root{
+    --night: #1c1712; --night-2: #26201a;
+    --clay: #c97a4a; --clay-light:#e0946a;
+    --chalk: #f4f1e6; --flood: #e8b93a; --turf:#3f7d43; --turf-light:#5a9c5c;
+    --line: rgba(244,241,230,0.14); --danger: #b3503f;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background: var(--night); color: var(--chalk); font-family: 'Cairo', sans-serif; min-height:100vh;
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(244,241,230,0.03) 40px),
+      radial-gradient(ellipse at top, rgba(201,122,74,0.18), transparent 60%);
+  }
+  .wrap{ max-width:520px; margin:0 auto; padding:20px 16px 60px; }
+  header.top{ display:flex; align-items:center; justify-content:space-between; padding:6px 2px 22px; border-bottom:1px solid var(--line); margin-bottom:20px; gap:10px; }
+  .brand{ display:flex; flex-direction:column; gap:2px; }
+  .brand .mark{ font-family:'Almarai'; font-weight:800; font-size:22px; }
+  .brand .mark span{ color:var(--clay-light); }
+  .brand .sub{ font-size:12.5px; color:rgba(244,241,230,0.55); }
+  .badge-dot{ width:34px; height:34px; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--clay-light), var(--night-2) 75%); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-family:'Cairo'; font-weight:800; font-size:13px; color:#fff; }
+  .badge-dot.lic-green{ background:radial-gradient(circle at 35% 30%, #5a9c5c, #1c3d1d 75%); }
+  .badge-dot.lic-yellow{ background:radial-gradient(circle at 35% 30%, #e8b93a, #4a3a0e 75%); }
+  .badge-dot.lic-red{ background:radial-gradient(circle at 35% 30%, #d9564a, #3d1512 75%); }
+  .license-lock{ position:fixed; inset:0; background:var(--night); z-index:200; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; text-align:center; }
+  .license-lock .circle{ width:90px; height:90px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:34px; font-weight:800; margin-bottom:20px; background:radial-gradient(circle at 35% 30%, #d9564a, #3d1512 75%); color:#fff; font-family:'Cairo'; }
+  .license-lock h2{ font-family:'Almarai'; margin-bottom:8px; }
+  .license-lock p{ color:rgba(244,241,230,0.6); font-size:13.5px; max-width:280px; }
+  .icon-btn{ background:none; border:1px solid var(--line); color:rgba(244,241,230,0.7); padding:8px 12px; border-radius:8px; font-family:'Cairo'; font-size:12.5px; font-weight:600; cursor:pointer; }
+  nav.tabs{ display:flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; margin-bottom:22px; flex-wrap:wrap; }
+  nav.tabs button{ flex:1; min-width:24%; padding:11px 4px; background:transparent; color:rgba(244,241,230,0.6); border:none; border-left:1px solid var(--line); font-family:'Cairo'; font-weight:600; font-size:12.5px; cursor:pointer; }
+  nav.tabs button:last-child{ border-left:none; }
+  nav.tabs button.active{ background:var(--clay); color:var(--chalk); }
+  .section-title{ font-family:'Almarai'; font-weight:700; font-size:18px; margin-bottom:12px; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .section-title .count{ font-size:12px; color:rgba(244,241,230,0.45); font-weight:400; font-family:'Cairo'; }
+  .empty{ text-align:center; padding:40px 20px; color:rgba(244,241,230,0.4); font-size:14px; }
+  .badge{ display:inline-block; padding:3px 9px; border-radius:20px; font-size:11.5px; font-weight:700; }
+  .badge.normal{ background:rgba(90,156,92,0.18); color:var(--turf-light); }
+  .badge.provisional{ background:rgba(232,185,58,0.16); color:var(--flood); }
+  .badge.pending{ background:rgba(232,185,58,0.16); color:var(--flood); }
+
+  .booking-admin-item, .acc-item, .pending-item{ border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+  .acc-item.has-recurring{ border-color:#d4af37; box-shadow:0 0 0 1px #d4af37 inset; }
+  .rec-panel{ display:none; }
+  .rec-panel.show{ display:block; }
+  .booking-admin-item{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .cancel{ background:none; border:1px solid rgba(179,80,63,0.5); color:var(--danger); padding:7px 12px; border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; flex-shrink:0; }
+
+  .pending-item .row1{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .pending-item .meta{ font-size:12.5px; color:rgba(244,241,230,0.6); line-height:1.6; margin-bottom:10px; }
+  .pending-item .meta b{ color:var(--chalk); }
+  .pending-item .row2{ display:flex; gap:8px; }
+  .approve-btn{ flex:1; padding:9px; border-radius:8px; border:none; background:var(--turf); color:var(--chalk); font-family:'Cairo'; font-size:13px; font-weight:700; cursor:pointer; }
+  .reject-btn{ flex:1; padding:9px; border-radius:8px; border:1px solid rgba(179,80,63,0.5); background:none; color:var(--danger); font-family:'Cairo'; font-size:13px; font-weight:700; cursor:pointer; }
+
+  .acc-item .row1{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .acc-item b{ font-family:'Almarai'; font-size:15px; }
+  .acc-item .phone{ font-size:12.5px; color:rgba(244,241,230,0.5); direction:ltr; display:inline-block; }
+  .acc-item .row2{ display:flex; gap:8px; }
+  .toggle-btn{ flex:1; padding:9px; border-radius:8px; border:1px solid var(--line); background:none; color:rgba(244,241,230,0.75); font-family:'Cairo'; font-size:12.5px; font-weight:600; cursor:pointer; }
+  .toggle-btn.is-active{ background:var(--turf); border-color:var(--turf); color:var(--chalk); }
+  .del-btn{ padding:9px 14px; border-radius:8px; border:1px solid rgba(179,80,63,0.5); background:none; color:var(--danger); font-family:'Cairo'; font-size:12.5px; font-weight:600; cursor:pointer; }
+
+  .field{ margin-bottom:14px; }
+  .field label{ font-size:13px; color:rgba(244,241,230,0.7); display:block; margin-bottom:6px; }
+  .field input{ width:100%; background:rgba(244,241,230,0.06); border:1px solid var(--line); border-radius:9px; padding:12px; color:var(--chalk); font-family:'Cairo'; font-size:15px; }
+  .field input:focus{ outline:none; border-color:var(--clay-light); }
+  .btn{ padding:13px; border-radius:9px; border:none; font-family:'Cairo'; font-weight:700; font-size:15px; cursor:pointer; width:100%; }
+  .btn.admin-primary{ background:var(--clay); color:var(--chalk); }
+  .err{ color:var(--danger); font-size:12.5px; margin-top:-6px; margin-bottom:10px; display:none; }
+  .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--clay); color:var(--chalk); padding:12px 20px; border-radius:10px; font-size:14px; font-weight:600; z-index:60; opacity:0; transition:opacity .25s ease; max-width:90%; text-align:center; }
+  .toast.show{ opacity:1; }
+
+  .login-screen{ display:flex; flex-direction:column; align-items:center; padding-top:10vh; }
+  .login-logo{ width:64px; height:64px; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--clay-light), var(--night-2) 75%); box-shadow:0 0 26px 6px rgba(201,122,74,0.3); margin-bottom:18px; }
+  .login-title{ font-family:'Almarai'; font-weight:800; font-size:22px; margin-bottom:6px; text-align:center; }
+  .login-sub{ font-size:13.5px; color:rgba(244,241,230,0.55); margin-bottom:28px; text-align:center; max-width:280px; }
+  .login-card{ width:100%; }
+  .settings-note{ font-size:12px; color:rgba(244,241,230,0.4); margin-top:6px; line-height:1.6; }
+  .checkbox-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:6px; }
+  .checkbox-grid .chk{ display:flex; align-items:center; gap:5px; font-size:12px; background:var(--night-2); padding:6px 8px; border-radius:6px; cursor:pointer; }
+  .checkbox-grid .chk input{ accent-color: var(--clay); flex-shrink:0; }
+  .install-bar{ position:fixed; bottom:0; left:0; right:0; background:var(--clay); color:var(--chalk); padding:12px 16px; display:none; align-items:center; justify-content:space-between; gap:12px; z-index:70; box-shadow:0 -4px 16px rgba(0,0,0,0.3); }
+  .install-bar.show{ display:flex; }
+  .install-bar span{ font-size:13.5px; font-weight:600; }
+  .install-bar .actions{ display:flex; gap:8px; flex-shrink:0; }
+  .install-bar button{ border:none; border-radius:8px; padding:8px 14px; font-family:'Cairo'; font-weight:700; font-size:13px; cursor:pointer; }
+  .install-bar .install-yes{ background:var(--chalk); color:var(--night); }
+  .install-bar .install-no{ background:transparent; color:rgba(244,241,230,0.7); }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="toast" id="toast"></div>
+<div class="install-bar" id="installBar">
+  <span>ثبّت لوحة المشرف على شاشتك الرئيسية</span>
+  <div class="actions">
+    <button class="install-yes" onclick="installApp()">تثبيت</button>
+    <button class="install-no" onclick="dismissInstallBar()">لاحقًا</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// إعداد Firebase — الصق بيانات مشروعك من Firebase Console هنا
+// (يجب أن تكون مطابقة تمامًا لما وضعته في ملف حجز-الملاعب.html)
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyAATE8FjT-Pg2G1lqNlqDEajdqiZY1EGdk",
+  authDomain: "malaeb-shaabiya.firebaseapp.com",
+  projectId: "malaeb-shaabiya",
+  storageBucket: "malaeb-shaabiya.firebasestorage.app",
+  messagingSenderId: "186784756749",
+  appId: "1:186784756749:web:c382ebd1dccc8a26b85144"
+};
+firebase.initializeApp(firebaseConfig);
+const _db = firebase.firestore();
+// تفعيل العمل بدون إنترنت: نفس السلوك بالضبط الموجود بملف الحجز —
+// نسخة محلية بالجهاز تُعرض فورًا، وتُزامن تلقائيًا عند عودة الاتصال.
+try{ _db.enablePersistence({ synchronizeTabs:true }).catch(()=>{}); }catch(e){}
+const _COLLECTION = 'app_data';
+
+function watchDoc(key, cb){
+  return _db.collection(_COLLECTION).doc(key).onSnapshot(
+    doc => cb(doc.exists ? doc.data().value : null),
+    err => console.warn('watchDoc error', err)
+  );
+}
+function watchPrefix(prefix, cb){
+  let q = _db.collection(_COLLECTION);
+  if(prefix){ q = q.where(firebase.firestore.FieldPath.documentId(), '>=', prefix).where(firebase.firestore.FieldPath.documentId(), '<', prefix+'\uf8ff'); }
+  return q.onSnapshot(
+    snap => cb(snap.docs.map(d=>({ key:d.id, value:d.data().value }))),
+    err => console.warn('watchPrefix error', err)
+  );
+}
+let _activeUnsubs = [];
+function _clearWatchers(){ _activeUnsubs.forEach(u=>{ try{ u(); }catch(e){} }); _activeUnsubs = []; }
+
+window.addEventListener('offline', ()=> showToast('غير متصل بالإنترنت — اللوحة تعمل من آخر بيانات محفوظة وستُزامن تلقائيًا عند عودة الاتصال'));
+window.addEventListener('online', ()=> showToast('تم الاتصال بالإنترنت — جاري المزامنة...'));
+
+// ==== الأصوات والإشعارات ====
+function requestNotifyPermission(){
+  if('Notification' in window && Notification.permission==='default'){
+    Notification.requestPermission().catch(()=>{});
+  }
+}
+function playSound(url){
+  try{ const audio = new Audio(url); audio.play().catch(()=>{}); }catch(e){}
+}
+async function showNotification(title, body){
+  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  try{
+    if('serviceWorker' in navigator){
+      const reg = await navigator.serviceWorker.ready;
+      reg.showNotification(title, { body, icon:'admin-icon-192.png', badge:'admin-favicon-32.png', vibrate:[200,100,200] });
+    } else {
+      new Notification(title, { body, icon:'admin-icon-192.png' });
+    }
+  }catch(e){}
+}
+
+// ==== إشعارات حقيقية (Push) عبر Firebase Cloud Messaging ====
+// الصق مفتاح VAPID من Firebase Console ← Project settings ← Cloud Messaging
+// (نفس المفتاح المستخدم بملف الحجز)
+const VAPID_KEY = "ضع_VAPID_KEY_هنا";
+let _messaging = null;
+try{ _messaging = firebase.messaging(); }catch(e){}
+
+async function registerFcmToken(){
+  if(!_messaging) return;
+  try{
+    if(!('serviceWorker' in navigator)) return;
+    const reg = await navigator.serviceWorker.ready;
+    const token = await _messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+    if(!token) return;
+    await setJson(`fcm-tokens:admin:${token}`, { token, updatedAt: Date.now() }, true);
+  }catch(e){ console.warn('FCM token error', e); }
+}
+// ملاحظة: لا نعالج رسائل FCM هنا وقت فتح اللوحة (foreground) عمدًا —
+// المراقبة الحية عبر Firestore (أعلى الملف) أسرع وتشغّل صفارة الحكم
+// مباشرة طالما اللوحة شغّالة، والـ Service Worker (admin-sw.js) هو من
+// يتكفل بعرض الإشعار فقط لو اللوحة مقفولة تمامًا.
+
+// مراقبة عامة مستمرة بمعزل عن أي تبويب: تكتشف أي حجز جديد (بانتظار
+// المطابقة أو عادي مؤكد فورًا) وتصدر صفارة الحكم مع إشعار خارج التطبيق.
+let _globalBookingWatchUnsub = null;
+let _knownBookingKeys = null;
+function startGlobalBookingWatch(){
+  if(_globalBookingWatchUnsub) return;
+  _globalBookingWatchUnsub = watchPrefix('booking:', (items)=>{
+    const currentKeys = new Set(items.map(it=>it.key));
+    if(_knownBookingKeys===null){ _knownBookingKeys = currentKeys; return; } // أول تحميل: لا تنبيه، فقط تسجيل الموجود حاليًا
+    items.forEach(it=>{
+      if(_knownBookingKeys.has(it.key)) return;
+      let val; try{ val = JSON.parse(it.value); }catch(e){ return; }
+      if(!val) return;
+      if(val.status==='awaiting_sms'){
+        playSound('whistle.mp3');
+        showNotification('حجز جديد بانتظار المراجعة', `${val.name} · ${val.date} · ${formatTime12(val.time)}`);
+      } else if(val.status==='confirmed' && val.bookingType==='normal'){
+        playSound('whistle.mp3');
+        showNotification('حجز عادي جديد', `${val.name} · ${val.date} · ${formatTime12(val.time)}`);
+      }
+    });
+    _knownBookingKeys = currentKeys;
+  });
+}
+
+// شبيه (shim) لواجهة window.storage الأصلية، لكن مبني على Firestore
+// بدل تخزين Claude — بقية الكود لا يحتاج أي تعديل لأنه يستخدم نفس الواجهة.
+window.storage = {
+  async get(key, shared){
+    if(!shared){
+      const v = localStorage.getItem('local:'+key);
+      return v ? { key, value:v, shared:false } : null;
+    }
+    const doc = await _db.collection(_COLLECTION).doc(key).get();
+    return doc.exists ? { key, value: doc.data().value, shared:true } : null;
+  },
+  async set(key, value, shared){
+    if(!shared){
+      localStorage.setItem('local:'+key, value);
+      return { key, value, shared:false };
+    }
+    await _db.collection(_COLLECTION).doc(key).set({ value, updatedAt: Date.now() });
+    return { key, value, shared:true };
+  },
+  async delete(key, shared){
+    if(!shared){
+      localStorage.removeItem('local:'+key);
+      return { key, deleted:true, shared:false };
+    }
+    await _db.collection(_COLLECTION).doc(key).delete();
+    return { key, deleted:true, shared:true };
+  },
+  async list(prefix, shared){
+    if(!shared){
+      const keys = []; const p = 'local:'+(prefix||'');
+      for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf(p)===0) keys.push(k.slice(6)); }
+      return { keys, prefix, shared:false };
+    }
+    let q = _db.collection(_COLLECTION);
+    if(prefix){ q = q.where(firebase.firestore.FieldPath.documentId(), '>=', prefix).where(firebase.firestore.FieldPath.documentId(), '<', prefix+'\uf8ff'); }
+    const snap = await q.get();
+    return { keys: snap.docs.map(d=>d.id), prefix, shared:true };
+  }
+};
+// ============================================================
+// نهاية إعداد Firebase — كل ما يلي هو نفس منطق التطبيق الأصلي
+// ============================================================
+
+const DEFAULT_COURTS = [
+  { id:'c1', name:'ملعب النجوم', area:'حي الزهور', price:60, closed:false },
+  { id:'c2', name:'ملعب الوادي', area:'شارع الجامعة', price:50, closed:false },
+  { id:'c3', name:'ملعب الشباب', area:'حي السلام', price:70, closed:false },
+  { id:'c4', name:'ملعب الحارة', area:'خلف السوق القديم', price:45, closed:false },
+];
+let COURTS = [];
+
+function localDateStr(d){
+  d = d || new Date();
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function daysSinceDate(dateStr){
+  const parts = dateStr.split('-').map(Number);
+  const then = new Date(parts[0], parts[1]-1, parts[2]);
+  const now = new Date();
+  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.floor((nowMidnight - then) / 86400000);
+}
+async function getLicense(){
+  const lic = await getJson('license:info', true);
+  if(!lic) return { adminCode:'admin2026', renewedDate: localDateStr(), active:true, daysLeft:30 };
+  const daysElapsed = daysSinceDate(lic.renewedDate);
+  const daysLeft = lic.active===false ? 0 : Math.max(0, 30 - daysElapsed);
+  return { ...lic, daysLeft };
+}
+
+let state = { view:'adminLogin', tab:'bookings' };
+
+function accountKey(phone){ return `account:${phone}`; }
+async function getJson(key, shared){ try{ const r = await window.storage.get(key, shared); return r?JSON.parse(r.value):null; }catch(e){ return null; } }
+async function setJson(key, val, shared){ try{ return await window.storage.set(key, JSON.stringify(val), shared); }catch(e){ return null; } }
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
+
+async function loadCourts(){
+  let courts = await getJson('config:courts', true);
+  if(!courts){ courts = DEFAULT_COURTS; await setJson('config:courts', courts, true); }
+  return courts;
+}
+async function saveCourts(courts){ await setJson('config:courts', courts, true); }
+
+function hourLabel12(h){
+  if(h===0) return '12:00 منتصف الليل';
+  if(h<12) return `${h}:00 صباحًا`;
+  if(h===12) return '12:00 ظهرًا';
+  return `${h-12}:00 مساءً`;
+}
+function formatTime12(hhmm){
+  const h = parseInt((hhmm||'0:0').split(':')[0], 10) || 0;
+  return hourLabel12(h);
+}
+
+function escapeRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+
+const DAY_NAMES = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const TIMES = Array.from({length:24}, (_,h)=>({ v: String(h).padStart(2,'0')+':00', l: hourLabel12(h) }));
+
+async function loadRecurringForPhone(phone){
+  try{
+    const all = await window.storage.list('recurring:', true);
+    const keys = (all && all.keys) ? all.keys : [];
+    const items = [];
+    await Promise.all(keys.map(async k=>{ const val = await getJson(k, true); if(val && val.phone===phone) items.push({key:k, ...val}); }));
+    items.sort((a,b)=> a.dow - b.dow || a.time.localeCompare(b.time));
+    return items;
+  }catch(e){ return []; }
+}
+
+function checkedValues(attr, phone){
+  return Array.from(document.querySelectorAll(`input[${attr}]`))
+    .filter(el => el.getAttribute(attr) === phone && el.checked)
+    .map(el => el.value);
+}
+
+async function removeRecurring(key){
+  try{ await window.storage.delete(key, true); showToast('تم إلغاء الحجز الخاص'); await renderAdminAccounts(); }
+  catch(e){ showToast('حدث خطأ، حاول مرة أخرى'); }
+}
+
+function extractRefAndAmount(smsText, settings){
+  let ref = '';
+  if(settings.smsRefKeyword){
+    const re = new RegExp(escapeRegex(settings.smsRefKeyword) + '\\s*[:\\-]?\\s*([A-Za-z0-9]+)', 'i');
+    const m = smsText.match(re);
+    if(m) ref = m[1];
+  }
+  if(!ref){
+    const tokens = smsText.match(/[A-Za-z0-9]{4,}/g) || [];
+    ref = tokens.sort((a,b)=>b.length-a.length)[0] || '';
+  }
+  let amount = null;
+  if(settings.smsAmountKeyword){
+    const re2 = new RegExp(escapeRegex(settings.smsAmountKeyword) + '\\s*[:\\-]?\\s*([\\d,]+(?:\\.\\d+)?)', 'i');
+    const m2 = smsText.match(re2);
+    if(m2) amount = parseFloat(m2[1].replace(/,/g,''));
+  }
+  if(amount===null){
+    const m3 = smsText.match(/\d+(?:[.,]\d+)?/);
+    if(m3) amount = parseFloat(m3[0].replace(/,/g,''));
+  }
+  const last4 = ref.slice(-4).toUpperCase();
+  return { ref, last4, amount };
+}
+
+async function matchAndConfirm(parsed){
+  if(!parsed.last4 || parsed.amount===null) return { matched:false };
+  const all = await window.storage.list('booking:', true);
+  const keys = (all && all.keys) ? all.keys : [];
+  const candidates = [];
+  await Promise.all(keys.map(async k=>{
+    const val = await getJson(k, true);
+    if(val && val.status==='awaiting_sms') candidates.push({key:k, ...val});
+  }));
+  candidates.sort((a,b)=>a.createdAt-b.createdAt);
+  const match = candidates.find(b => b.last4Ref===parsed.last4 && Math.abs(Number(b.depositAmount)-parsed.amount) < 0.01);
+  if(!match) return { matched:false };
+  match.status = 'confirmed';
+  await setJson(match.key, match, true);
+  return { matched:true, booking: match };
+}
+
+async function logSms(smsText, parsed, result){
+  try{
+    const key = `sms-log:${Date.now()}`;
+    await setJson(key, { text: smsText.slice(0,300), last4: parsed.last4, amount: parsed.amount, matched: !!result.matched, bookingName: result.booking ? result.booking.name : null, at: Date.now() }, true);
+  }catch(e){}
+}
+
+async function handleIncomingSms(smsText, token, sender){
+  const app = document.getElementById('app');
+  const lic = await getLicense();
+  if(lic.active===false || lic.daysLeft<=0){
+    app.innerHTML = `<div class="empty">انتهى اشتراك لوحة المشرف — لا يمكن معالجة الرسائل حاليًا</div>`;
+    return;
+  }
+  const settings = await getJson('config:settings', true) || {};
+  if(!settings.smsToken || token !== settings.smsToken){
+    app.innerHTML = `<div class="empty">رمز غير صحيح</div>`;
+    return;
+  }
+  if(settings.smsSenderName && settings.smsSenderName.trim()){
+    const expected = settings.smsSenderName.trim().toLowerCase();
+    const got = (sender||'').trim().toLowerCase();
+    if(!got || !got.includes(expected)){
+      app.innerHTML = `
+        <div style="padding:50px 20px; text-align:center;">
+          <div style="font-size:44px; margin-bottom:12px;">🚫</div>
+          <div style="font-family:'Almarai'; font-weight:700; font-size:16px; margin-bottom:8px;">تم تجاهل الرسالة</div>
+          <div style="font-size:12.5px; opacity:.55;">اسم المرسل "${sender||'غير محدد'}" لا يطابق اسم البنك المُعتمد بالإعدادات</div>
+        </div>`;
+      return;
+    }
+  }
+  const parsed = extractRefAndAmount(smsText, settings);
+  const result = await matchAndConfirm(parsed);
+  await logSms(smsText, parsed, result);
+  app.innerHTML = `
+    <div style="padding:50px 20px; text-align:center;">
+      <div style="font-size:44px; margin-bottom:12px;">${result.matched?'✅':'⚠️'}</div>
+      <div style="font-family:'Almarai'; font-weight:700; font-size:16px; margin-bottom:8px;">${result.matched?`تم تأكيد حجز ${result.booking.name}`:'لم يتم العثور على حجز مطابق'}</div>
+      <div style="font-size:12.5px; opacity:.55;">آخر 4: ${parsed.last4||'-'} · المبلغ المستخرج: ${parsed.amount!==null?parsed.amount:'-'}</div>
+    </div>`;
+}
+
+function render(){
+  const app = document.getElementById('app');
+  if(state.view==='adminLogin'){ renderAdminLogin(); return; }
+  if(state.view==='admin'){ renderAdminApp(); return; }
+}
+
+function renderAdminLogin(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="login-screen">
+      <div class="login-logo"></div>
+      <div class="login-title">لوحة المشرف</div>
+      <div class="login-sub">تحكم كامل في حجوزات الملاعب الشعبية — منفصلة تمامًا عن تطبيق الحجز.</div>
+      <div class="login-card">
+        <div class="field"><label>كلمة المرور</label><input type="password" id="adminPass" placeholder="••••••••"></div>
+        <div class="err" id="adminErr">كلمة المرور غير صحيحة</div>
+        <button class="btn admin-primary" onclick="doAdminLogin()">دخول</button>
+      </div>
+    </div>`;
+}
+
+async function doAdminLogin(){
+  const pass = document.getElementById('adminPass').value;
+  const errEl = document.getElementById('adminErr');
+  const lic = await getLicense();
+  if(pass !== lic.adminCode){ errEl.style.display='block'; return; }
+  errEl.style.display = 'none';
+  if(lic.active===false || lic.daysLeft<=0){ showExpiredLock(); return; }
+  await setJson('admin_session', true, false);
+  state.view = 'admin'; state.tab = 'bookings'; render();
+  requestNotifyPermission();
+  registerFcmToken();
+  startGlobalBookingWatch();
+  startLicenseWatch();
+}
+
+function adminLogout(){
+  _clearWatchers();
+  window.storage.delete('admin_session', false).catch(()=>{});
+  if(_globalBookingWatchUnsub){ try{ _globalBookingWatchUnsub(); }catch(e){} _globalBookingWatchUnsub=null; }
+  _knownBookingKeys = null;
+  if(_licenseWatchUnsub){ try{ _licenseWatchUnsub(); }catch(e){} _licenseWatchUnsub=null; }
+  state.view = 'adminLogin'; render();
+}
+
+// ==== مراقبة الترخيص/الاشتراك الحية ====
+let _licenseWatchUnsub = null;
+function startLicenseWatch(){
+  if(_licenseWatchUnsub) return;
+  _licenseWatchUnsub = watchDoc('license:info', (value)=>{
+    let lic; try{ lic = value ? JSON.parse(value) : null; }catch(e){ lic = null; }
+    if(!lic) return;
+    const daysLeft = lic.active===false ? 0 : Math.max(0, 30 - daysSinceDate(lic.renewedDate));
+    paintLicenseBadge(daysLeft);
+    if(lic.active===false || daysLeft<=0){ showExpiredLock(); }
+  });
+  // فحص فوري عند البدء + كل ساعة (لأن اليوم يتغيّر مع الوقت حتى بدون أي كتابة جديدة بقاعدة البيانات)
+  const check = async ()=>{
+    const lic = await getLicense();
+    paintLicenseBadge(lic.daysLeft);
+    if(lic.active===false || lic.daysLeft<=0){ showExpiredLock(); }
+  };
+  check();
+  if(_licenseCheckTimer) clearInterval(_licenseCheckTimer);
+  _licenseCheckTimer = setInterval(check, 300000);
+}
+let _licenseCheckTimer = null;
+
+function paintLicenseBadge(daysLeft){
+  const el = document.getElementById('licenseBadge');
+  if(!el) return;
+  el.textContent = daysLeft;
+  el.className = 'badge-dot ' + (daysLeft>15 ? 'lic-green' : (daysLeft>5 ? 'lic-yellow' : 'lic-red'));
+}
+
+function showExpiredLock(){
+  if(document.getElementById('expiredLockScreen')) return;
+  _clearWatchers();
+  if(_globalBookingWatchUnsub){ try{ _globalBookingWatchUnsub(); }catch(e){} _globalBookingWatchUnsub=null; }
+  if(_licenseWatchUnsub){ try{ _licenseWatchUnsub(); }catch(e){} _licenseWatchUnsub=null; }
+  if(_licenseCheckTimer){ clearInterval(_licenseCheckTimer); _licenseCheckTimer=null; }
+  window.storage.delete('admin_session', false).catch(()=>{});
+  const div = document.createElement('div');
+  div.id = 'expiredLockScreen';
+  div.className = 'license-lock';
+  div.innerHTML = `
+    <div class="circle">0</div>
+    <h2>انتهى الاشتراك</h2>
+    <p>تواصل مع مزوّد الخدمة لتجديد اشتراك لوحة المشرف حتى تقدر تدخل من جديد.</p>`;
+  document.body.appendChild(div);
+}
+
+async function renderAdminApp(){
+  COURTS = await loadCourts();
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <header class="top">
+      <div class="brand"><div class="mark">لوحة <span>المشرف</span></div><div class="sub">تحكم في الحجوزات، الإيداعات، والحسابات</div></div>
+      <div style="display:flex; align-items:center; gap:8px;"><div class="badge-dot" id="licenseBadge">--</div><button class="icon-btn" onclick="adminLogout()">خروج</button></div>
+    </header>
+    <nav class="tabs">
+      <button class="${state.tab==='bookings'?'active':''}" onclick="setAdminTab('bookings')">الحجوزات</button>
+      <button class="${state.tab==='courts'?'active':''}" onclick="setAdminTab('courts')">الملاعب</button>
+      <button class="${state.tab==='accounts'?'active':''}" onclick="setAdminTab('accounts')">الحسابات</button>
+      <button class="${state.tab==='settings'?'active':''}" onclick="setAdminTab('settings')">الإعدادات</button>
+    </nav>
+    <div id="body"><div class="empty">جاري التحميل...</div></div>`;
+  if(state.tab==='bookings') renderAdminBookings();
+  else if(state.tab==='courts') renderCourtsTab();
+  else if(state.tab==='accounts') renderAdminAccounts();
+  else renderSettings();
+  refreshLicenseBadgeNow();
+}
+
+async function refreshLicenseBadgeNow(){
+  const lic = await getLicense();
+  paintLicenseBadge(lic.daysLeft);
+  if(lic.active===false || lic.daysLeft<=0){ showExpiredLock(); }
+}
+
+function setAdminTab(tab){ _clearWatchers(); state.tab = tab; renderAdminApp(); }
+
+async function renderAdminBookings(){
+  _clearWatchers();
+  const body = document.getElementById('body');
+  body.innerHTML = `<div class="empty">جاري التحميل...</div>`;
+  let _liveCourts = COURTS, _liveBookings = [], _liveRecurring = [];
+  function repaint(){ paintAdminBookings(_liveCourts, _liveBookings, _liveRecurring); }
+  _activeUnsubs.push(watchDoc('config:courts', (value)=>{
+    if(value){ try{ _liveCourts = JSON.parse(value); COURTS = _liveCourts; }catch(e){} }
+    repaint();
+  }));
+  _activeUnsubs.push(watchPrefix('booking:', (items)=>{
+    _liveBookings = items.map(it=>{ try{ return { key:it.key, ...JSON.parse(it.value) }; }catch(e){ return null; } }).filter(Boolean);
+    _liveBookings.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+    repaint();
+  }));
+  _activeUnsubs.push(watchPrefix('recurring:', (items)=>{
+    _liveRecurring = items.map(it=>{ try{ return { key:it.key, ...JSON.parse(it.value) }; }catch(e){ return null; } }).filter(Boolean);
+    _liveRecurring.sort((a,b)=> a.dow - b.dow || a.time.localeCompare(b.time));
+    repaint();
+  }));
+}
+
+function paintAdminBookings(courtsList, all, recurring){
+  const body = document.getElementById('body');
+  if(!body) return;
+  const recurringHtml = (!recurring || recurring.length===0) ? '' : `
+    <div class="section-title">الحجوزات الخاصة (متكررة أسبوعيًا) <span class="count">${recurring.length}</span></div>
+    ${recurring.map(r=>{
+      const court = courtsList.find(c=>c.id===r.courtId);
+      return `
+        <div class="pending-item">
+          <div class="row1"><b style="font-family:'Almarai';">${court?court.name:r.courtId}</b><span class="badge normal">دائم</span></div>
+          <div class="meta">كل ${DAY_NAMES[r.dow]} · الساعة ${formatTime12(r.time)}<br>باسم: <b>${r.name}</b> · <span style="direction:ltr; display:inline-block;">${r.phone}</span></div>
+          <div class="row2">
+            <button class="reject-btn" onclick="removeRecurring('${r.key}')">إلغاء الحجز الخاص</button>
+          </div>
+        </div>`;
+    }).join('')}`;
+  const awaiting = all.filter(b=>b.status==='awaiting_sms');
+  const confirmed = all.filter(b=>b.status==='confirmed');
+  const awaitingHtml = awaiting.length===0 ? '' : `
+    <div class="section-title" style="margin-top:${recurringHtml?'26px':'0'};">بانتظار المطابقة التلقائية <span class="count">${awaiting.length}</span></div>
+    ${awaiting.map(b=>{
+      const court = courtsList.find(c=>c.id===b.courtId);
+      return `
+        <div class="pending-item">
+          <div class="row1"><b style="font-family:'Almarai';">${court?court.name:b.courtId}</b><span class="badge pending">${b.depositAmount||'-'} د.ل</span></div>
+          <div class="meta">
+            التاريخ: <b>${b.date}</b> · الساعة: <b>${formatTime12(b.time)}</b><br>
+            الاسم: <b>${b.name}</b> · الهاتف: <b style="direction:ltr; display:inline-block;">${b.phone}</b><br>
+            آخر 4 من رقم العملية كما أدخلها المستخدم: <b>${b.last4Ref||'-'}</b>
+          </div>
+          <div class="row2">
+            <button class="approve-btn" onclick="manualConfirmBooking('${b.key}')">تأكيد يدوي</button>
+            <button class="reject-btn" onclick="manualRejectBooking('${b.key}')">رفض / إلغاء</button>
+          </div>
+        </div>`;
+    }).join('')}`;
+  if(confirmed.length===0 && awaiting.length===0 && (!recurring || recurring.length===0)){
+    body.innerHTML = `<div class="section-title">الحجوزات المؤكدة <span class="count">0</span></div><div class="empty">لا توجد حجوزات حاليًا</div>`;
+    return;
+  }
+  body.innerHTML = `
+    ${recurringHtml}
+    ${awaitingHtml}
+    <div class="section-title" style="margin-top:${(recurringHtml||awaitingHtml)?'26px':'0'};">الحجوزات المؤكدة <span class="count">${confirmed.length} حجز</span></div>
+    ${confirmed.length===0 ? '<div class="empty">لا توجد حجوزات مؤكدة حاليًا</div>' : confirmed.map(b=>{
+      const court = courtsList.find(c=>c.id===b.courtId);
+      const badge = b.bookingType==='provisional' ? `<span class="badge provisional">مبدئي مؤكد</span>` : (b.bookingType==='private' ? `<span class="badge normal">حجز خاص (مرة واحدة)</span>` : `<span class="badge normal">عادي</span>`);
+      return `
+        <div class="booking-admin-item">
+          <div class="info">
+            <b style="font-family:'Almarai'; display:block; margin-bottom:3px;">${court?court.name:b.courtId} ${badge}</b>
+            <span style="font-size:12.5px; color:rgba(244,241,230,0.55); display:block;">${b.date} · ${formatTime12(b.time)}</span>
+            <span style="font-size:12.5px; color:rgba(244,241,230,0.55); display:block;">${b.name} · <span style="direction:ltr; display:inline-block;">${b.phone}</span></span>
+            ${b.bookingType==='provisional' ? `<span style="font-size:12.5px; color:rgba(244,241,230,0.55);">إيداع: ${b.depositAmount||'-'} د.ل · آخر 4: ${b.last4Ref || 'غير مذكور'}</span>` : ''}
+          </div>
+          <button class="cancel" onclick="adminCancelBooking('${b.key}')">إلغاء</button>
+        </div>`;
+    }).join('')}`;
+}
+
+async function manualConfirmBooking(key){
+  try{
+    const b = await getJson(key, true);
+    if(!b) return;
+    b.status = 'confirmed';
+    await setJson(key, b, true);
+    showToast(`تم تأكيد حجز ${b.name} يدويًا`);
+  }catch(e){ showToast('حدث خطأ، حاول مرة أخرى'); }
+}
+
+async function manualRejectBooking(key){
+  try{ await window.storage.delete(key, true); showToast('تم إلغاء الحجز وفتح الموعد من جديد'); }
+  catch(e){ showToast('حدث خطأ، حاول مرة أخرى'); }
+}
+
+async function adminCancelBooking(key){
+  try{ await window.storage.delete(key, true); showToast('تم إلغاء الحجز'); }
+  catch(e){ showToast('حدث خطأ، حاول مرة أخرى'); }
+}
+
+async function renderCourtsTab(){
+  COURTS = await loadCourts();
+  const body = document.getElementById('body');
+  body.innerHTML = `
+    <div class="section-title">الملاعب <span class="count">${COURTS.length} ملعب</span></div>
+    ${COURTS.length===0 ? '<div class="empty">لا توجد ملاعب مضافة بعد</div>' : COURTS.map((c,idx)=>`
+      <div class="acc-item">
+        <div class="row1">
+          <div><b>#${idx+1} — ${c.name}</b><br><span class="phone">${c.area||'بدون منطقة محددة'} · ${c.price} د.ل/ساعة</span></div>
+          ${c.closed ? `<span class="badge pending">مغلق للصيانة</span>` : `<span class="badge normal">مفعّل</span>`}
+        </div>
+        <div class="field"><label>اسم الملعب</label><input type="text" id="courtName-${c.id}" value="${c.name}"></div>
+        <div class="field"><label>المنطقة</label><input type="text" id="courtArea-${c.id}" value="${c.area||''}"></div>
+        <div class="field"><label>السعر بالساعة (د.ل)</label><input type="number" id="courtPrice-${c.id}" value="${c.price}"></div>
+        <div class="row2">
+          <button class="toggle-btn is-active" onclick="saveCourtEdits('${c.id}')">حفظ التعديلات</button>
+          <button class="toggle-btn ${c.closed?'is-active':''}" onclick="toggleCourtClosed('${c.id}')">${c.closed?'إعادة تفعيل':'إغلاق للصيانة'}</button>
+          <button class="del-btn" onclick="deleteCourt('${c.id}')">حذف</button>
+        </div>
+      </div>`).join('')}
+    <div class="acc-item">
+      <div class="row1"><b>إضافة ملعب جديد</b></div>
+      <div class="field"><label>اسم الملعب</label><input type="text" id="newCourtName" placeholder="مثال: ملعب النصر"></div>
+      <div class="field"><label>المنطقة (اختياري)</label><input type="text" id="newCourtArea" placeholder="مثال: حي بن عاشور"></div>
+      <div class="field"><label>السعر بالساعة (د.ل)</label><input type="number" id="newCourtPrice" placeholder="50"></div>
+      <div class="err" id="courtErr">اكتب اسم الملعب</div>
+      <button class="btn admin-primary" onclick="addCourt()">إضافة الملعب</button>
+    </div>`;
+}
+
+async function saveCourtEdits(id){
+  const courts = await loadCourts();
+  const c = courts.find(x=>x.id===id);
+  if(!c) return;
+  const nameEl = document.getElementById(`courtName-${id}`);
+  const areaEl = document.getElementById(`courtArea-${id}`);
+  const priceEl = document.getElementById(`courtPrice-${id}`);
+  c.name = (nameEl.value||'').trim() || c.name;
+  c.area = (areaEl.value||'').trim();
+  c.price = Number(priceEl.value) || c.price;
+  await saveCourts(courts);
+  showToast('تم حفظ تعديلات الملعب');
+  await renderCourtsTab();
+}
+
+async function toggleCourtClosed(id){
+  const courts = await loadCourts();
+  const c = courts.find(x=>x.id===id);
+  if(!c) return;
+  c.closed = !c.closed;
+  await saveCourts(courts);
+  showToast(c.closed ? 'تم إغلاق الملعب للصيانة' : 'تم إعادة تفعيل الملعب');
+  await renderCourtsTab();
+}
+
+async function deleteCourt(id){
+  const courts = await loadCourts();
+  const remaining = courts.filter(x=>x.id!==id);
+  await saveCourts(remaining);
+  showToast('تم حذف الملعب');
+  await renderCourtsTab();
+}
+
+async function addCourt(){
+  const name = document.getElementById('newCourtName').value.trim();
+  const area = document.getElementById('newCourtArea').value.trim();
+  const price = Number(document.getElementById('newCourtPrice').value) || 0;
+  const errEl = document.getElementById('courtErr');
+  if(!name){ errEl.style.display='block'; return; }
+  errEl.style.display='none';
+  const courts = await loadCourts();
+  courts.push({ id:`c${Date.now()}`, name, area, price, closed:false });
+  await saveCourts(courts);
+  showToast('تمت إضافة الملعب بنجاح');
+  await renderCourtsTab();
+}
+
+async function renderAdminAccounts(){
+  const body = document.getElementById('body');
+  const addFormHtml = `
+    <div class="acc-item">
+      <div class="row1"><b>إضافة حساب جديد</b></div>
+      <div class="field"><label>الاسم</label><input type="text" id="newAccName" placeholder="اكتب الاسم"></div>
+      <div class="field"><label>رقم الهاتف</label><input type="tel" id="newAccPhone" placeholder="091xxxxxxx" style="direction:ltr; text-align:right;"></div>
+      <div class="err" id="newAccErr">يوجد حساب مسجّل بهذا الرقم مسبقًا</div>
+      <button class="btn admin-primary" onclick="addNewAccount()">إضافة الحساب</button>
+    </div>`;
+  try{
+    const all = await window.storage.list('account:', true);
+    const keys = (all && all.keys) ? all.keys : [];
+    const accounts = [];
+    await Promise.all(keys.map(async k=>{ const val = await getJson(k, true); if(val) accounts.push(val); }));
+    accounts.sort((a,b)=>b.createdAt - a.createdAt);
+    const recurringByPhone = {};
+    await Promise.all(accounts.map(async a=>{ recurringByPhone[a.phone] = await loadRecurringForPhone(a.phone); }));
+    _accountsCache = { accounts, recurringByPhone };
+    body.innerHTML = `
+      <div class="section-title">الحسابات <span class="count">${accounts.length} حساب</span></div>
+      ${addFormHtml}
+      <div class="field">
+        <label>بحث بالاسم أو رقم الهاتف</label>
+        <input type="text" id="accSearchInput" placeholder="اكتب أول حرف من الاسم أو أول أرقام الهاتف..." oninput="filterAccountsList()" style="direction:rtl;">
+      </div>
+      <div id="accountsListContainer"></div>`;
+    paintAccountsList(accounts, recurringByPhone);
+  }catch(e){ body.innerHTML = `<div class="empty">حصل خطأ في التحميل</div>`; }
+}
+
+let _accountsCache = null;
+
+function filterAccountsList(){
+  if(!_accountsCache) return;
+  const q = (document.getElementById('accSearchInput').value || '').trim();
+  const list = !q ? _accountsCache.accounts : _accountsCache.accounts.filter(a =>
+    (a.name && a.name.startsWith(q)) || (a.phone && a.phone.startsWith(q))
+  );
+  paintAccountsList(list, _accountsCache.recurringByPhone);
+}
+
+function paintAccountsList(accounts, recurringByPhone){
+  const container = document.getElementById('accountsListContainer');
+  if(!container) return;
+  if(accounts.length===0){ container.innerHTML = `<div class="empty">لا توجد نتائج مطابقة</div>`; return; }
+  container.innerHTML = accounts.map(a=>{
+        const recs = recurringByPhone[a.phone] || [];
+        const hasRecurring = recs.length>0;
+        let recSummary = '';
+        if(hasRecurring){
+          const court = COURTS.find(c=>c.id===recs[0].courtId);
+          const lines = recs.map(r=>`${DAY_NAMES[r.dow]} ${formatTime12(r.time)}`).join('، ');
+          recSummary = `<div class="settings-note" style="margin-top:8px;">${court?court.name:recs[0].courtId} · ${lines}</div>`;
+        }
+        return `
+        <div class="acc-item${hasRecurring?' has-recurring':''}">
+          <div class="row1">
+            <div><b>${a.name}</b><br><span class="phone">${a.phone}</span></div>
+            ${a.status==='normal' ? `<span class="badge normal">حجز عادي</span>` : `<span class="badge provisional">حجز مبدئي</span>`}
+          </div>
+          <div class="row2">
+            <button class="toggle-btn ${a.status==='provisional'?'is-active':''}" onclick="setAccountStatus('${a.phone}','provisional')">مبدئي</button>
+            <button class="toggle-btn ${a.status==='normal'?'is-active':''}" onclick="setAccountStatus('${a.phone}','normal')">عادي</button>
+            <button class="del-btn" onclick="deleteAccount('${a.phone}')">حذف</button>
+          </div>
+          ${recSummary}
+          ${hasRecurring
+            ? `<button class="btn" style="margin-top:8px; background:none; border:1px solid var(--danger); color:var(--danger);" onclick="cancelAllRecurring('${a.phone}')">إلغاء الحجز الخاص</button>`
+            : `<button class="btn admin-primary" style="margin-top:8px;" onclick="toggleRecPanel('${a.phone}')">إضافة حجز خاص</button>`
+          }
+          <div id="recPanel-${a.phone}" style="display:none; margin-top:12px; border-top:1px solid var(--line); padding-top:12px;">
+            <div class="settings-note" style="font-weight:700;">اختر ملعبًا واحدًا</div>
+            <select id="recCourt-${a.phone}" style="width:100%; margin-top:6px; background:var(--night-2); color:var(--chalk); border:1px solid var(--line); border-radius:8px; padding:9px;">
+              ${COURTS.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}
+            </select>
+            <div class="settings-note" style="font-weight:700; margin-top:12px;">اختر يومًا وحدّد ساعته ونوع التكرار (يمكنك اختيار أكثر من يوم، ولكل يوم إعداداته الخاصة)</div>
+            ${DAY_NAMES.map((d,i)=>`
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; background:var(--night-2); padding:8px; border-radius:8px;">
+                <label class="chk" style="background:none; padding:0; flex-shrink:0;"><input type="checkbox" data-rec-dow="${a.phone}" value="${i}" onchange="toggleDayTimeSelect('${a.phone}', ${i})"> ${d}</label>
+                <select id="recTime-${a.phone}-${i}" disabled style="flex:1; min-width:100px; background:var(--night); color:var(--chalk); border:1px solid var(--line); border-radius:6px; padding:6px;">
+                  ${TIMES.map(t=>`<option value="${t.v}">${t.l}</option>`).join('')}
+                </select>
+                <select id="recMode-${a.phone}-${i}" disabled style="flex:1; min-width:90px; background:var(--night); color:var(--chalk); border:1px solid var(--line); border-radius:6px; padding:6px;">
+                  <option value="always">دائم (كل أسبوع)</option>
+                  <option value="once">مرة واحدة فقط</option>
+                </select>
+              </div>`).join('')}
+            <button class="btn admin-primary" style="margin-top:12px;" onclick="confirmRecurring('${a.phone}')">تم الاختيار</button>
+          </div>
+        </div>`;
+      }).join('');
+}
+
+function toggleDayTimeSelect(phone, dow){
+  const checkbox = document.querySelector(`input[data-rec-dow="${phone}"][value="${dow}"]`);
+  const timeSel = document.getElementById(`recTime-${phone}-${dow}`);
+  const modeSel = document.getElementById(`recMode-${phone}-${dow}`);
+  const enabled = !!(checkbox && checkbox.checked);
+  if(timeSel) timeSel.disabled = !enabled;
+  if(modeSel) modeSel.disabled = !enabled;
+}
+
+// تاريخ أقرب موعد قادم لهذا اليوم من الأسبوع (لو اليوم نفسه، يرجع تاريخ اليوم)
+function nextDateForDow(dow){
+  const now = new Date();
+  const diff = (dow - now.getDay() + 7) % 7;
+  const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff);
+  return `${target.getFullYear()}-${String(target.getMonth()+1).padStart(2,'0')}-${String(target.getDate()).padStart(2,'0')}`;
+}
+
+async function addNewAccount(){
+  const nameEl = document.getElementById('newAccName');
+  const phoneEl = document.getElementById('newAccPhone');
+  const errEl = document.getElementById('newAccErr');
+  const name = nameEl.value.trim();
+  const phone = phoneEl.value.trim();
+  errEl.style.display = 'none';
+  if(!name || !phone){ showToast('اكتب الاسم ورقم الهاتف'); return; }
+  const existing = await getJson(accountKey(phone), true);
+  if(existing){ errEl.style.display = 'block'; return; }
+  await setJson(accountKey(phone), { phone, name, status:'provisional', createdAt: Date.now() }, true);
+  showToast('تم إضافة الحساب بنجاح');
+  await renderAdminAccounts();
+}
+
+function toggleRecPanel(phone){
+  const panel = document.getElementById(`recPanel-${phone}`);
+  if(panel) panel.style.display = panel.style.display==='none' ? 'block' : 'none';
+}
+
+async function confirmRecurring(phone){
+  const courtId = document.getElementById(`recCourt-${phone}`).value;
+  const dows = checkedValues('data-rec-dow', phone).map(Number);
+  if(dows.length===0){ showToast('اختر يومًا واحدًا على الأقل'); return; }
+  const acc = await getJson(accountKey(phone), true);
+  if(!acc){ showToast('تعذّر إيجاد الحساب'); return; }
+  let added = 0; const conflicts = [];
+  for(const dow of dows){
+    const timeEl = document.getElementById(`recTime-${phone}-${dow}`);
+    const modeEl = document.getElementById(`recMode-${phone}-${dow}`);
+    const time = timeEl ? timeEl.value : null;
+    const mode = modeEl ? modeEl.value : 'always';
+    if(!time) continue;
+    if(mode==='once'){
+      const date = nextDateForDow(dow);
+      const recExisting = await getJson(`recurring:${courtId}:${dow}:${time}`, true);
+      if(recExisting && recExisting.phone !== phone){
+        conflicts.push(`${DAY_NAMES[dow]} ${formatTime12(time)} (محجوز حجزًا دائمًا لـ ${recExisting.name})`);
+        continue;
+      }
+      const bKey = `booking:${courtId}:${date}:${time}`;
+      const bExisting = await getJson(bKey, true);
+      if(bExisting){
+        conflicts.push(`${DAY_NAMES[dow]} ${formatTime12(time)} (الموعد بتاريخ ${date} محجوز بالفعل)`);
+        continue;
+      }
+      await setJson(bKey, { courtId, date, time, phone, name:acc.name, bookingType:'private', status:'confirmed', createdAt: Date.now() }, true);
+      added++;
+    } else {
+      const key = `recurring:${courtId}:${dow}:${time}`;
+      const existing = await getJson(key, true);
+      if(existing && existing.phone !== phone){
+        conflicts.push(`${DAY_NAMES[dow]} ${formatTime12(time)} (محجوز لـ ${existing.name})`);
+        continue;
+      }
+      await setJson(key, { phone, name:acc.name, courtId, dow, time, createdAt: Date.now() }, true);
+      added++;
+    }
+  }
+  if(added>0){ showToast(`تم تأكيد الحجز الخاص ✓ (${added})` + (conflicts.length ? ` — تعذّر: ${conflicts.join('، ')}` : '')); }
+  else{ showToast(`لم يتم التفعيل — ${conflicts.join('، ')}`); }
+  await renderAdminAccounts();
+}
+
+async function cancelAllRecurring(phone){
+  try{
+    const recs = await loadRecurringForPhone(phone);
+    await Promise.all(recs.map(r=>window.storage.delete(r.key, true)));
+    showToast('تم إلغاء الحجز الخاص بالكامل لهذا الحساب');
+    await renderAdminAccounts();
+  }catch(e){ showToast('حدث خطأ، حاول مرة أخرى'); }
+}
+
+async function setAccountStatus(phone, status){
+  try{
+    const acc = await getJson(accountKey(phone), true);
+    if(!acc) return;
+    acc.status = status;
+    await setJson(accountKey(phone), acc, true);
+    showToast(status==='normal' ? 'تم تحويل الحساب لحجز عادي' : 'تم تحويل الحساب لحجز مبدئي');
+    await renderAdminAccounts();
+  }catch(e){ showToast('حدث خطأ، حاول مرة أخرى'); }
+}
+
+async function deleteAccount(phone){
+  try{
+    await window.storage.delete(accountKey(phone), true);
+    showToast('تم حذف الحساب. سيحتاج المستخدم إلى التسجيل من جديد وسيبدأ بحجز مبدئي');
+    await renderAdminAccounts();
+  }catch(e){ showToast('حدث خطأ، حاول مرة أخرى'); }
+}
+
+async function renderSettings(){
+  const body = document.getElementById('body');
+  const s = await getJson('config:settings', true) || { depositAmount:50, bankName:'', accountHolder:'', accountNumber:'', extraLabel1:'', extraValue1:'', extraLabel2:'', extraValue2:'', smsToken:'', smsSenderName:'', smsRefKeyword:'', smsAmountKeyword:'' };
+  const webhookUrl = `${location.origin}${location.pathname}?token=${encodeURIComponent(s.smsToken||'')}&sender=&sms=`;
+  const logs = await loadSmsLog();
+  body.innerHTML = `
+    <div class="section-title">إعدادات الإيداع</div>
+    <div class="field"><label>مبلغ الحجز المبدئي (د.ل)</label><input type="number" id="setDeposit" value="${s.depositAmount}"></div>
+    <div class="field"><label>اسم البنك</label><input type="text" id="setBank" value="${s.bankName}" placeholder="مثال: مصرف الجمهورية"></div>
+    <div class="field"><label>اسم صاحب الحساب</label><input type="text" id="setHolder" value="${s.accountHolder}"></div>
+    <div class="field"><label>رقم الحساب / IBAN</label><input type="text" id="setNumber" value="${s.accountNumber}" style="direction:ltr; text-align:right;"></div>
+    <div class="field"><label>طريقة تحويل إضافية ١ - الاسم (اختياري)</label><input type="text" id="setExtra1Label" value="${s.extraLabel1||''}" placeholder="مثال: موبي كاش"></div>
+    <div class="field"><label>طريقة تحويل إضافية ١ - الرقم</label><input type="text" id="setExtra1Value" value="${s.extraValue1||''}" style="direction:ltr; text-align:right;"></div>
+    <div class="field"><label>طريقة تحويل إضافية ٢ - الاسم (اختياري)</label><input type="text" id="setExtra2Label" value="${s.extraLabel2||''}" placeholder="مثال: تحويل عبر تطبيق آخر"></div>
+    <div class="field"><label>طريقة تحويل إضافية ٢ - الرقم</label><input type="text" id="setExtra2Value" value="${s.extraValue2||''}" style="direction:ltr; text-align:right;"></div>
+    <button class="btn admin-primary" onclick="saveSettings()">حفظ الإعدادات</button>
+    <div class="settings-note">هذه البيانات هي التي تظهر للمستخدم صاحب "الحجز المبدئي" ليحوّل عليها. بمجرد أن تصل رسالة البنك ويتم مطابقتها تلقائيًا، يتأكد الحجز فورًا دون أي انتظار.</div>
+
+    <div class="section-title" style="margin-top:32px;">المطابقة التلقائية عبر رسائل البنك</div>
+    <div class="field"><label>رمز سري لحماية رابط استقبال الرسائل</label><input type="text" id="setSmsToken" value="${s.smsToken||''}" style="direction:ltr; text-align:right;" placeholder="مثال: a7f92k"></div>
+    <button class="btn admin-primary" style="margin-bottom:14px;" type="button" onclick="generateSmsToken()">توليد رمز عشوائي جديد</button>
+    <div class="field"><label>اسم جهة الإرسال بالضبط كما يظهر برسائل البنك (اختياري لكن يُنصح به)</label><input type="text" id="setSmsSenderName" value="${s.smsSenderName||''}" placeholder="مثال: Med Bank"></div>
+    <div class="field"><label>كلمة تسبق رقم عملية التحويل في رسالة البنك (اختياري)</label><input type="text" id="setSmsRefKeyword" value="${s.smsRefKeyword||''}" placeholder="مثال: رقم المعاملة"></div>
+    <div class="field"><label>كلمة تسبق المبلغ في رسالة البنك (اختياري)</label><input type="text" id="setSmsAmountKeyword" value="${s.smsAmountKeyword||''}" placeholder="مثال: ايداع"></div>
+    <button class="btn admin-primary" onclick="saveSettings()">حفظ إعدادات الرسائل</button>
+    <div class="settings-note">اسم جهة الإرسال يمنع معالجة أي رسالة لا تأتي فعليًا من البنك (حتى لو حصل أحد على الرابط بالخطأ). أما الكلمتين الأخريين فاتركهما فارغتين لو غير متأكد — النظام يحاول استخراج رقم العملية والمبلغ تلقائيًا، لكن تحديدهما يرفع دقة المطابقة بشكل كبير.</div>
+
+    <div class="field" style="margin-top:18px;">
+      <label>رابط استقبال الرسائل (يُستخدم في تطبيق مثل MacroDroid على جهاز المشرف)</label>
+      <input type="text" id="webhookUrlBox" value="${webhookUrl}" readonly style="direction:ltr; text-align:left; font-size:11.5px;">
+    </div>
+    <button class="btn admin-primary" type="button" onclick="copyWebhookUrl()">نسخ الرابط</button>
+    <div class="settings-note">اضبط تطبيق أتمتة (مثل MacroDroid) على جهازك بمُشغّل "SMS Received" من رقم/اسم البنك، وإجراء "Open Website": الصق هذا الرابط، وبعد <b>sender=</b> أضف متغير اسم المرسل (Incoming SMS contact) وبعد <b>sms=</b> أضف متغير نص الرسالة (Incoming SMS message). لضمان عدم تفويت أي رسالة متأخرة، فعّل خيار "Monitor inbox" داخل إعدادات المُشغّل، وامنع نظام أندرويد من إيقاف التطبيق بالخلفية (إلغاء تحسين البطارية عن MacroDroid) — هذا يخلي المراقبة فعليًا لحظية ومستمرة طول الوقت، حتى لو تأخرت رسالة البنك نفسها.</div>
+
+    <div class="section-title" style="margin-top:26px;">آخر الرسائل المعالجة <span class="count">${logs.length}</span></div>
+    ${logs.length===0 ? '<div class="empty">لا توجد رسائل معالجة بعد</div>' : logs.map(l=>`
+      <div class="acc-item">
+        <div class="row1">
+          <div><span class="phone">آخر 4: ${l.last4||'-'} · المبلغ: ${l.amount!==null&&l.amount!==undefined?l.amount:'-'}</span></div>
+          ${l.matched ? `<span class="badge normal">تمت المطابقة${l.bookingName?': '+l.bookingName:''}</span>` : `<span class="badge pending">بدون مطابقة</span>`}
+        </div>
+      </div>`).join('')}
+    ${logs.length>0 ? `<button class="btn" style="background:none; border:1px solid var(--line); color:rgba(244,241,230,0.7);" onclick="clearSmsLog()">مسح السجل</button>` : ''}`;
+}
+
+async function loadSmsLog(){
+  try{
+    const all = await window.storage.list('sms-log:', true);
+    const keys = (all && all.keys) ? all.keys : [];
+    const logs = [];
+    await Promise.all(keys.map(async k=>{ const val = await getJson(k, true); if(val) logs.push(val); }));
+    logs.sort((a,b)=>b.at-a.at);
+    return logs.slice(0,15);
+  }catch(e){ return []; }
+}
+
+async function clearSmsLog(){
+  try{
+    const all = await window.storage.list('sms-log:', true);
+    const keys = (all && all.keys) ? all.keys : [];
+    await Promise.all(keys.map(k=>window.storage.delete(k, true)));
+    showToast('تم مسح سجل الرسائل');
+    await renderSettings();
+  }catch(e){ showToast('حدث خطأ، حاول مرة أخرى'); }
+}
+
+function generateSmsToken(){
+  const token = Math.random().toString(36).slice(2,10);
+  document.getElementById('setSmsToken').value = token;
+}
+
+async function copyWebhookUrl(){
+  const box = document.getElementById('webhookUrlBox');
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(box.value); }
+    else { box.removeAttribute('readonly'); box.focus(); box.select(); document.execCommand('copy'); box.setAttribute('readonly',''); }
+    showToast('تم نسخ الرابط ✓');
+  }catch(e){ showToast('تعذر النسخ، انسخه يدويًا'); }
+}
+
+async function saveSettings(){
+  const settings = {
+    depositAmount: Number(document.getElementById('setDeposit').value) || 0,
+    bankName: document.getElementById('setBank').value.trim(),
+    accountHolder: document.getElementById('setHolder').value.trim(),
+    accountNumber: document.getElementById('setNumber').value.trim(),
+    extraLabel1: document.getElementById('setExtra1Label').value.trim(),
+    extraValue1: document.getElementById('setExtra1Value').value.trim(),
+    extraLabel2: document.getElementById('setExtra2Label').value.trim(),
+    extraValue2: document.getElementById('setExtra2Value').value.trim(),
+    smsToken: document.getElementById('setSmsToken').value.trim(),
+    smsRefKeyword: document.getElementById('setSmsRefKeyword').value.trim(),
+    smsSenderName: document.getElementById('setSmsSenderName').value.trim(),
+    smsAmountKeyword: document.getElementById('setSmsAmountKeyword').value.trim(),
+  };
+  await setJson('config:settings', settings, true);
+  showToast('تم حفظ الإعدادات');
+}
+
+async function boot(){
+  const hasSession = await getJson('admin_session', false);
+  if(hasSession){
+    const lic = await getLicense();
+    if(lic.active===false || lic.daysLeft<=0){
+      render();
+      showExpiredLock();
+      return;
+    }
+    state.view = 'admin'; state.tab = 'bookings';
+    requestNotifyPermission();
+    registerFcmToken();
+    startGlobalBookingWatch();
+    startLicenseWatch();
+  }
+  render();
+}
+
+const _params = new URLSearchParams(location.search);
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('admin-sw.js').catch(()=>{}); });
+}
+
+let _deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  if(!localStorage.getItem('admin_install_dismissed')){
+    document.getElementById('installBar').classList.add('show');
+  }
+});
+async function installApp(){
+  const bar = document.getElementById('installBar');
+  bar.classList.remove('show');
+  if(!_deferredInstallPrompt) return;
+  _deferredInstallPrompt.prompt();
+  await _deferredInstallPrompt.userChoice;
+  _deferredInstallPrompt = null;
+}
+function dismissInstallBar(){
+  document.getElementById('installBar').classList.remove('show');
+  localStorage.setItem('admin_install_dismissed', '1');
+}
+window.addEventListener('appinstalled', ()=>{ document.getElementById('installBar').classList.remove('show'); });
+
+if(_params.has('sms')){
+  handleIncomingSms(_params.get('sms'), _params.get('token') || '', _params.get('sender') || '');
+} else {
+  boot();
+}
+</script>
+</body>
+</html>
